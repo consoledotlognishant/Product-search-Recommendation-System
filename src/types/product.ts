@@ -49,6 +49,10 @@ export interface VisualQuery {
   edgeDensity: number;
   aspectRatio: number;
   extractedCategoryHint?: string;
+  detectedCategory?: ProductCategory;
+  detectedConfidence?: number;
+  detectedLabel?: string;
+  strictCategoryFilter?: boolean;
 }
 
 export interface RecommendationMatch {

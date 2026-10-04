@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, RefreshCw, X, Sparkles, Sliders } from 'lucide-react';
+import { Camera, RefreshCw, X, Sparkles, Filter, CheckCircle2 } from 'lucide-react';
 import { VisualQuery } from '../types/product';
 
 interface VisualSearchBannerProps {
@@ -7,6 +7,7 @@ interface VisualSearchBannerProps {
   resultsCount: number;
   onClear: () => void;
   onChangeImage: () => void;
+  onToggleStrictCategory: () => void;
 }
 
 export const VisualSearchBanner: React.FC<VisualSearchBannerProps> = ({
@@ -14,7 +15,10 @@ export const VisualSearchBanner: React.FC<VisualSearchBannerProps> = ({
   resultsCount,
   onClear,
   onChangeImage,
+  onToggleStrictCategory,
 }) => {
+  const isStrict = query.strictCategoryFilter !== false;
+
   return (
     <div className="bg-white rounded-2xl border border-neutral-200/90 p-4 sm:p-5 shadow-sm mb-8 transition-all">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
@@ -32,23 +36,37 @@ export const VisualSearchBanner: React.FC<VisualSearchBannerProps> = ({
           </div>
 
           <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-800 text-[11px] font-medium rounded-full border border-neutral-200">
-                <Sparkles className="w-3 h-3 text-neutral-900" />
-                Visual Similarity Active
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-neutral-900 text-white text-[11px] font-medium rounded-full shadow-2xs">
+                <Sparkles className="w-3 h-3 text-emerald-400" />
+                <span>AI Garment Detected: {query.detectedLabel || query.detectedCategory || 'Apparel'}</span>
               </span>
-              <span className="text-xs text-neutral-600">
-                • {resultsCount} recommendations found
-              </span>
+
+              {/* Strict Category Lock Badge */}
+              <button
+                type="button"
+                onClick={onToggleStrictCategory}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-semibold rounded-full border transition cursor-pointer ${
+                  isStrict
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                    : 'bg-neutral-100 text-neutral-600 border-neutral-200 hover:bg-neutral-200'
+                }`}
+                title={isStrict ? 'Strict filter active: showing ONLY this garment category' : 'Click to lock to this category only'}
+              >
+                <Filter className="w-3 h-3" />
+                <span>{isStrict ? `Strict Mode: Showing Only ${query.detectedCategory || 'This Category'}` : 'Show All Categories'}</span>
+              </button>
             </div>
 
-            <h3 className="text-sm sm:text-base font-semibold text-neutral-900 mt-1">
-              Recommendations based on visual features & color harmony
+            <h3 className="text-sm sm:text-base font-semibold text-neutral-900 mt-1.5">
+              {isStrict
+                ? `Exclusively recommending matching ${query.detectedCategory?.toLowerCase() || 'pieces'} (${resultsCount} found)`
+                : `Showing all visually similar items (${resultsCount} found)`}
             </h3>
 
             {/* Extracted dominant palette swatches */}
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-[11px] font-medium text-neutral-600 uppercase tracking-wider">
+              <span className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider">
                 Extracted Palette:
               </span>
               <div className="flex items-center gap-1.5">

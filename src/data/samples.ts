@@ -62,5 +62,12 @@ export const SAMPLE_QUERIES: SampleQuery[] = [
     category: 'Topwear',
     imageUrl: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80',
     expectedColor: 'Pure White',
+  },
+  {
+    id: 'sample-denim-jeans',
+    title: 'Raw Indigo Jeans',
+    category: 'Bottomwear',
+    imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=400&q=80',
+    expectedColor: 'Deep Navy Blue',
   }
 ];

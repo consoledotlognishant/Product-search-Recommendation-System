@@ -69,21 +69,19 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
     }
   };
 
-  const processImageSource = async (source: string | File) => {
+  const processImageSource = async (source: string | File, fileName?: string) => {
     setIsProcessing(true);
-    setProcessingStatus('Reading image data...');
+    setProcessingStatus('Loading neural network model...');
 
     try {
-      await new Promise((r) => setTimeout(r, 200));
-      setProcessingStatus('Extracting color histogram & dominant palette...');
+      const name = fileName || (source instanceof File ? source.name : undefined);
+      setProcessingStatus('Running MobileNet neural garment classifier...');
 
-      await new Promise((r) => setTimeout(r, 250));
-      setProcessingStatus('Computing 128D spatial & texture visual vector...');
+      const visualQuery = await extractImageFeatures(source, name);
 
-      const visualQuery = await extractImageFeatures(source);
-
-      setProcessingStatus('Ranking catalog items by cosine similarity...');
-      await new Promise((r) => setTimeout(r, 200));
+      const categoryName = visualQuery.detectedCategory || 'Garment';
+      setProcessingStatus(`Detected: ${visualQuery.detectedLabel || categoryName}! Filtering strictly to ${categoryName}...`);
+      await new Promise((r) => setTimeout(r, 300));
 
       setIsProcessing(false);
       onVisualSearchSuccess(visualQuery);
@@ -97,7 +95,8 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      processImageSource(e.target.files[0]);
+      const file = e.target.files[0];
+      processImageSource(file, file.name);
     }
   };
 
@@ -116,7 +115,8 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processImageSource(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      processImageSource(file, file.name);
     }
   };
 

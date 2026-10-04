@@ -47,11 +47,22 @@ export default function App() {
   const handleVisualSearchSuccess = (query: VisualQuery) => {
     setActiveVisualQuery(query);
     setSortBy('match');
-    showToast('Visual features extracted. Displaying ranked recommendations.');
+    const cat = query.detectedCategory || 'garment';
+    showToast(`Detected ${query.detectedLabel || cat}! Strictly showing ${cat} only.`);
+  };
+
+  const handleToggleStrictCategory = () => {
+    setActiveVisualQuery((prev) => {
+      if (!prev) return null;
+      const nextStrict = prev.strictCategoryFilter === false;
+      showToast(nextStrict ? `Strict mode ON: Exclusively showing ${prev.detectedCategory}` : 'Showing all categories');
+      return { ...prev, strictCategoryFilter: nextStrict };
+    });
   };
 
   const handleClearVisualSearch = () => {
     setActiveVisualQuery(null);
+    setActiveCategory('All');
     setSortBy('rating');
   };
 
@@ -280,6 +291,7 @@ export default function App() {
             resultsCount={displayedProducts.length}
             onClear={handleClearVisualSearch}
             onChangeImage={() => setIsVisualSearchModalOpen(true)}
+            onToggleStrictCategory={handleToggleStrictCategory}
           />
         )}
 

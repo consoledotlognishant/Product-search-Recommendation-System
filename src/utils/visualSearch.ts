@@ -1,4 +1,5 @@
-import { DominantColor, Product, RecommendationMatch, VisualQuery } from '../types/product';
+import { DominantColor, Product, ProductCategory, RecommendationMatch, VisualQuery } from '../types/product';
+import { classifyGarment } from './garmentClassifier';
 
 // Color name mapping utility for accurate fashion palette labeling
 const FASHION_COLOR_NAMES: Array<{ name: string; rgb: [number, number, number] }> = [
@@ -52,16 +53,42 @@ export function rgbToHex(r: number, g: number, b: number): string {
 
 /**
  * Extracts a normalized 128-dimensional visual feature embedding vector
- * and rich visual metadata directly in-browser using HTML5 Canvas.
+ * and runs neural garment classification (MobileNet AI) in-browser.
  */
-export async function extractImageFeatures(imageSource: string | File | HTMLImageElement): Promise<VisualQuery> {
+export async function extractImageFeatures(
+  imageSource: string | File | HTMLImageElement,
+  fileName?: string
+): Promise<VisualQuery> {
+  let actualFileName = fileName;
+  if (!actualFileName && imageSource instanceof File) {
+    actualFileName = imageSource.name;
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
 
-    img.onload = () => {
+    img.onload = async () => {
       try {
         const query = processImageElement(img);
+        
+        // Run neural garment classification using MobileNet
+        try {
+          const classification = await classifyGarment(img, actualFileName);
+          query.detectedCategory = classification.category;
+          query.detectedConfidence = classification.confidence;
+          query.detectedLabel = classification.detectedType;
+          query.strictCategoryFilter = true; // STRICT FILTERING: Only show this garment type!
+        } catch (e) {
+          console.warn('Garment classification error:', e);
+          query.detectedCategory = 'Topwear';
+          query.strictCategoryFilter = true;
+        }
+
+        if (actualFileName) {
+          query.fileName = actualFileName;
+        }
+
         resolve(query);
       } catch (err) {
         reject(err);
@@ -83,12 +110,27 @@ export async function extractImageFeatures(imageSource: string | File | HTMLImag
       reader.readAsDataURL(imageSource);
     } else if (imageSource instanceof HTMLImageElement) {
       if (imageSource.complete) {
-        resolve(processImageElement(imageSource));
+        processImageElementWithModel(imageSource, actualFileName).then(resolve).catch(reject);
       } else {
         img.src = imageSource.src;
       }
     }
   });
+}
+
+async function processImageElementWithModel(img: HTMLImageElement, fileName?: string): Promise<VisualQuery> {
+  const query = processImageElement(img);
+  try {
+    const classification = await classifyGarment(img, fileName);
+    query.detectedCategory = classification.category;
+    query.detectedConfidence = classification.confidence;
+    query.detectedLabel = classification.detectedType;
+    query.strictCategoryFilter = true;
+  } catch (e) {
+    query.detectedCategory = 'Topwear';
+    query.strictCategoryFilter = true;
+  }
+  return query;
 }
 
 function processImageElement(img: HTMLImageElement): VisualQuery {
@@ -157,7 +199,7 @@ function processImageElement(img: HTMLImageElement): VisualQuery {
 
   // 2. Spatial Grid Edge and Luminance Density (4x4 grid = 16 cells x 2 = 32 dimensions)
   const spatialFeatures = new Float32Array(32);
-  const cellSize = sampleSize / 4; // 16 pixels per cell
+  const cellSize = sampleSize / 4;
 
   for (let gy = 0; gy < 4; gy++) {
     for (let gx = 0; gx < 4; gx++) {
@@ -174,7 +216,6 @@ function processImageElement(img: HTMLImageElement): VisualQuery {
           const luma = 0.299 * r + 0.587 * g + 0.114 * b;
           cellLumaSum += luma;
 
-          // Simple horizontal and vertical gradient (Sobel edge approximation)
           if (x > 0 && y > 0 && x < sampleSize - 1 && y < sampleSize - 1) {
             const rightIdx = (y * sampleSize + (x + 1)) * 4;
             const bottomIdx = ((y + 1) * sampleSize + x) * 4;
@@ -247,12 +288,11 @@ function processImageElement(img: HTMLImageElement): VisualQuery {
   globalStats[10] = dominantPalette.length > 0 ? dominantPalette[0].percentage / 100 : 0;
   globalStats[11] = dominantPalette.length > 1 ? dominantPalette[1].percentage / 100 : 0;
   globalStats[12] = dominantPalette.length > 2 ? dominantPalette[2].percentage / 100 : 0;
-  globalStats[13] = (colorHistogram[0] + colorHistogram[1] + colorHistogram[16]) * 2; // Dark density
-  globalStats[14] = (colorHistogram[63] + colorHistogram[62] + colorHistogram[47]) * 2; // Bright density
+  globalStats[13] = (colorHistogram[0] + colorHistogram[1] + colorHistogram[16]) * 2;
+  globalStats[14] = (colorHistogram[63] + colorHistogram[62] + colorHistogram[47]) * 2;
   globalStats[15] = Math.abs(avgBright - 0.5) * 2;
 
   // Combine into 128-dimensional embedding vector
-  // 64 (color hist) + 32 (spatial) + 16 (centroids) + 16 (global stats) = 128
   const combined = new Float32Array(128);
   combined.set(colorHistogram, 0);
   combined.set(spatialFeatures, 64);
@@ -277,23 +317,12 @@ function processImageElement(img: HTMLImageElement): VisualQuery {
     averageBrightness: Number(avgBright.toFixed(2)),
     edgeDensity: Number(edgeDensity.toFixed(2)),
     aspectRatio: Number(aspectRatio.toFixed(2)),
-    extractedCategoryHint: inferCategoryHint(dominantPalette, aspectRatio, edgeDensity),
+    extractedCategoryHint: aspectRatio > 1.25 ? 'Bottomwear / Pants' : 'Topwear / Shirts',
   };
-}
-
-function inferCategoryHint(palette: DominantColor[], aspectRatio: number, edgeDensity: number): string | undefined {
-  if (aspectRatio > 0.85 && aspectRatio < 1.15 && edgeDensity > 0.45) {
-    return 'Footwear or Watch';
-  }
-  if (aspectRatio < 0.75) {
-    return 'Apparel / Full Silhouette';
-  }
-  return undefined;
 }
 
 /**
  * Computes Cosine Similarity between two 128-dim vectors.
- * Returns value between 0.0 and 1.0.
  */
 export function computeCosineSimilarity(v1: number[], v2: number[]): number {
   if (!v1 || !v2 || v1.length !== v2.length) return 0;
@@ -325,7 +354,8 @@ export function calculateColorSimilarity(rgb1: [number, number, number], rgb2: [
 
 /**
  * High-performance multi-objective product recommendation engine.
- * Ranks catalog items by hybrid visual similarity, color affinity, and texture match.
+ * STRICT CATEGORY MATCHING: When a shirt is uploaded, only shirts (Topwear) are returned.
+ * When pants are uploaded, only pants (Bottomwear) are returned.
  */
 export function recommendProducts(
   query: VisualQuery,
@@ -339,28 +369,37 @@ export function recommendProducts(
     searchQuery?: string;
   } = {}
 ): RecommendationMatch[] {
-  const { topK = 16, category, gender, minPrice, maxPrice, searchQuery } = options;
+  const { topK = 24, category, gender, minPrice, maxPrice, searchQuery } = options;
+
+  // STRICT CATEGORY ENFORCEMENT:
+  // If the user hasn't explicitly overridden the category, and strictCategoryFilter is enabled (default),
+  // strictly filter to the neural-detected category!
+  const effectiveCategory =
+    category && category !== 'All'
+      ? category
+      : query.strictCategoryFilter !== false && query.detectedCategory
+      ? query.detectedCategory
+      : undefined;
 
   const queryPrimaryColor = query.dominantPalette[0]?.rgb || [128, 128, 128];
-
   const results: RecommendationMatch[] = [];
 
   for (const product of catalog) {
-    // Category filter
-    if (category && category !== 'All' && product.category !== category) {
+    // 1. STRICT CATEGORY FILTER: Ensures shirt only shows shirts, pant only shows pants!
+    if (effectiveCategory && effectiveCategory !== 'All' && product.category !== effectiveCategory) {
       continue;
     }
 
-    // Gender filter
+    // 2. Gender filter
     if (gender && gender !== 'All' && product.gender !== gender && product.gender !== 'Unisex') {
       continue;
     }
 
-    // Price filter
+    // 3. Price filter
     if (minPrice !== undefined && product.price < minPrice) continue;
     if (maxPrice !== undefined && product.price > maxPrice) continue;
 
-    // Search query filter (textual keyword matching)
+    // 4. Search query filter
     if (searchQuery && searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
@@ -374,13 +413,13 @@ export function recommendProducts(
       if (!matchesSearch) continue;
     }
 
-    // 1. Vector Cosine Similarity (Deep visual embedding)
+    // Vector Cosine Similarity
     const cosineSim = computeCosineSimilarity(query.vector, product.vector);
 
-    // 2. Color Similarity (Dominant palette alignment)
+    // Color Similarity
     const colorSim = calculateColorSimilarity(queryPrimaryColor, product.dominantColor.rgb);
 
-    // 3. Texture / Edge Density Alignment (Slice 64-96 of vector)
+    // Texture / Edge Density Alignment
     let textureDist = 0;
     for (let k = 64; k < 96; k++) {
       const diff = query.vector[k] - product.vector[k];
@@ -391,10 +430,10 @@ export function recommendProducts(
     // Hybrid combined score: 55% embedding, 30% color harmony, 15% texture silhouette
     const rawScore = 0.55 * cosineSim + 0.30 * colorSim + 0.15 * textureSim;
 
-    // Calibrate to realistic human-facing match percentage: 70% - 99%
-    const calibratedPercentage = Math.min(99, Math.max(68, Math.round(rawScore * 100)));
+    // Calibrate human-facing match percentage: 70% - 99%
+    const calibratedPercentage = Math.min(99, Math.max(70, Math.round(rawScore * 100)));
 
-    // Generate descriptive match reasons
+    // Match reasons
     const matchReasons: string[] = [];
     if (colorSim > 0.85) {
       matchReasons.push(`${Math.round(colorSim * 100)}% Color Tone Harmony (${product.colorName})`);
@@ -403,15 +442,13 @@ export function recommendProducts(
     }
 
     if (textureSim > 0.80) {
-      matchReasons.push('Matching Minimalist Silhouette');
+      matchReasons.push('Matching Garment Silhouette');
     } else {
       matchReasons.push('Harmonious Proportions');
     }
 
-    if (cosineSim > 0.88) {
-      matchReasons.push('High-Confidence Visual Embedding Match');
-    } else if (cosineSim > 0.75) {
-      matchReasons.push('Visual Style Alignment');
+    if (cosineSim > 0.85) {
+      matchReasons.push('Deep Visual Feature Alignment');
     }
 
     results.push({
