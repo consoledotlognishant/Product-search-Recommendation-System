@@ -150,7 +150,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               <button
                 type="button"
-                onClick={() => alert('Checkout simulation complete. Thank you for testing Atelier Visual Search!')}
+                onClick={() => alert('Checkout simulation complete. Thank you for testing VisionCart AI!')}
                 className="w-full py-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition"
               >
                 <span>Proceed to Checkout</span>

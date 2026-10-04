@@ -1,6 +1,6 @@
 # Product-search-Recommendation-System
 
-> A modern, minimalist visual product discovery and recommendation engine powered by 100% client-side 128-dimensional image feature embeddings and cosine similarity. Built with React, TypeScript, Vite, and Tailwind CSS. Zero backend required — ready for instant deployment on Vercel.
+> **VisionCart AI** — A modern, minimalist visual product discovery and recommendation engine powered by 100% client-side 128-dimensional image feature embeddings and cosine similarity. Built with React, TypeScript, Vite, and Tailwind CSS. Zero backend required — ready for instant deployment on Vercel.
 
 ---
 

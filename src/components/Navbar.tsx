@@ -70,8 +70,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="group flex flex-col cursor-pointer"
             >
               <div className="flex items-center gap-2">
-                <span className="text-xl sm:text-2xl font-semibold tracking-tighter text-neutral-900 group-hover:text-neutral-700 transition">
-                  ATELIER
+                <span className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 group-hover:text-neutral-700 transition flex items-center gap-1">
+                  <span>VisionCart</span>
+                  <span className="text-emerald-600 font-extrabold">AI</span>
                 </span>
                 <span className="text-[10px] tracking-widest font-mono uppercase bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded border border-neutral-200">
                   VISUAL SEARCH

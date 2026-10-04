@@ -53,7 +53,7 @@ export const Footer: React.FC = () => {
         {/* Bottom Credits & Links */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-600">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-neutral-900 tracking-tight">ATELIER</span>
+            <span className="font-bold text-neutral-900 tracking-tight">VisionCart AI</span>
             <span>• Visual Product Search & Recommendation System</span>
           </div>
 
